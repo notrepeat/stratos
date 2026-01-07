@@ -6,6 +6,7 @@ import { UserGatewayLocalAdapter } from './infrastructure/adapters/user-gateway.
 import { USER_REPOSITORY } from './core/ports/user.repository.port';
 import { USER_GATEWAY } from './core/ports/user.gateway.port';
 import { UsersController } from './api/controllers/users.controller';
+import { UserResolver } from './graphql/user.resolver';
 import { DatabaseModule } from '../../core/infrastructure/database/database.module';
 
 @Module({
@@ -14,6 +15,7 @@ import { DatabaseModule } from '../../core/infrastructure/database/database.modu
   providers: [
     UserService,
     SuperAdminService,
+    UserResolver,
     {
       provide: USER_REPOSITORY,
       useClass: UserRepositoryAdapter,

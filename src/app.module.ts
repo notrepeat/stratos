@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { GraphqlModule } from './graphql/graphql.module';
 import { StorageCoreModule } from './core/infrastructure/storage/storage.module';
 import { TenantThrottlerModule } from './core/services/tenant-throttler.module';
 import { HealthController } from './core/controllers/health.controller';
@@ -24,6 +25,7 @@ import { DatabaseModule } from './core/infrastructure/database/database.module';
         limit: 10, // 10 requests per second globally
       },
     ]),
+    GraphqlModule,
     DatabaseModule,
     StorageCoreModule,
     TenantThrottlerModule,

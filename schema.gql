@@ -1,0 +1,147 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+type BillingSummary {
+  overdueInvoices: Float!
+  paidInvoices: Float!
+  pendingInvoices: Float!
+  totalInvoices: Float!
+  totalPaid: Float!
+  totalPending: Float!
+}
+
+input CancelInvoiceInput {
+  id: String!
+}
+
+input CreateTenantInput {
+  adminEmail: String!
+  adminName: String!
+  domain: String!
+  name: String!
+  slug: String!
+}
+
+input CreateUserInput {
+  email: String!
+  name: String!
+  tenantId: String
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+input GenerateInvoiceInput {
+  billingPeriodEnd: String!
+  billingPeriodStart: String!
+  tenantId: String!
+}
+
+type Invoice {
+  amount: Float!
+  billingPeriodEnd: DateTime!
+  billingPeriodStart: DateTime!
+  createdAt: DateTime!
+  currency: String!
+  dueDate: DateTime!
+  id: ID!
+  isOverdue: Boolean!
+  outstandingAmount: Float!
+  status: String!
+  tenantId: String!
+  updatedAt: DateTime!
+}
+
+type Mutation {
+  cancelInvoice(input: CancelInvoiceInput!): Invoice!
+  createTenant(input: CreateTenantInput!): Tenant!
+  createUser(input: CreateUserInput!): User!
+  deleteTenant(id: ID!): Boolean!
+  deleteUser(id: ID!): Boolean!
+  generateInvoice(input: GenerateInvoiceInput!): Invoice!
+  processPayment(input: ProcessPaymentInput!): Payment!
+  refundPayment(input: RefundPaymentInput!): Payment!
+  updateTenant(id: ID!, input: UpdateTenantInput!): Tenant!
+  updateUser(id: ID!, input: UpdateUserInput!): User!
+}
+
+type Payment {
+  amount: Float!
+  createdAt: DateTime!
+  currency: String!
+  displayAmount: Float!
+  id: ID!
+  invoiceId: String!
+  paymentDate: DateTime!
+  paymentMethod: String!
+  status: String!
+  transactionId: String
+  updatedAt: DateTime!
+}
+
+input ProcessPaymentInput {
+  amount: Float!
+  invoiceId: String!
+  notes: String
+  paymentMethod: String!
+  transactionId: String
+}
+
+type Query {
+  billingSummary(tenantId: String!): BillingSummary!
+  deepHealth: String!
+  health: String!
+  invoice(id: ID!): Invoice!
+  invoicePayments(invoiceId: String!): [Payment!]!
+  invoices(tenantId: String!): [Invoice!]!
+  overdueInvoices: [Invoice!]!
+  payments(tenantId: String!): [Payment!]!
+  pendingInvoices(tenantId: String!): [Invoice!]!
+  storageHealth: String!
+  tenant(id: ID!): Tenant
+  tenantBySlug(slug: String!): Tenant
+  tenants: [Tenant!]!
+  tenantsHealth: String!
+  user(id: ID!): User
+  userByEmail(email: String!): User
+  users: [User!]!
+}
+
+input RefundPaymentInput {
+  id: String!
+}
+
+type Tenant {
+  adminEmail: String
+  adminName: String
+  createdAt: DateTime!
+  domain: String!
+  id: ID!
+  isActive: Boolean!
+  name: String!
+  slug: String!
+  status: String!
+  updatedAt: DateTime!
+}
+
+input UpdateTenantInput {
+  name: String
+  slug: String
+}
+
+input UpdateUserInput {
+  name: String
+}
+
+type User {
+  createdAt: DateTime!
+  email: String!
+  id: ID!
+  isSuperAdmin: Boolean!
+  name: String!
+  tenantId: String
+  updatedAt: DateTime!
+}

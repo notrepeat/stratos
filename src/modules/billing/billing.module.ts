@@ -5,6 +5,7 @@ import { PaymentRepositoryAdapter } from '@modules/billing/infrastructure/adapte
 import { INVOICE_REPOSITORY } from '@modules/billing/core/ports/invoice.repository.port';
 import { PAYMENT_REPOSITORY } from '@modules/billing/core/ports/payment.repository.port';
 import { BillingController } from '@modules/billing/api/controllers/billing.controller';
+import { BillingResolver } from './graphql/billing.resolver';
 import { DatabaseModule } from '@core/infrastructure/database/database.module';
 import { CacheService } from '@core/services/cache.service';
 
@@ -13,6 +14,7 @@ import { CacheService } from '@core/services/cache.service';
   controllers: [BillingController],
   providers: [
     BillingService,
+    BillingResolver,
     CacheService,
     {
       provide: INVOICE_REPOSITORY,
