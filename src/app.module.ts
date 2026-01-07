@@ -1,6 +1,9 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { StorageModule } from './modules/storage/storage.module';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { StorageCoreModule } from './core/infrastructure/storage/storage.module';
+import { TenantThrottlerModule } from './core/services/tenant-throttler.module';
+import { HealthController } from './core/controllers/health.controller';
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { TenantsModule } from './modules/tenants/tenants.module';
@@ -14,15 +17,23 @@ import { DatabaseModule } from './core/infrastructure/database/database.module';
       isGlobal: true,
       envFilePath: '.env',
     }),
+    ThrottlerModule.forRoot([
+      {
+        name: 'short',
+        ttl: 1000, // 1 second
+        limit: 10, // 10 requests per second globally
+      },
+    ]),
     DatabaseModule,
-    StorageModule,
+    StorageCoreModule,
+    TenantThrottlerModule,
     UsersModule,
     AuthModule,
     TenantsModule,
     BillingModule,
     PermissionsModule,
   ],
-  controllers: [],
+  controllers: [HealthController],
   providers: [],
 })
 export class AppModule {}

@@ -1,12 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import {
   S3Client,
-  PutObjectCommand,
   GetObjectCommand,
   DeleteObjectCommand,
   HeadObjectCommand,
 } from '@aws-sdk/client-s3';
-import { Readable } from 'stream';
+import { Upload } from '@aws-sdk/lib-storage';
+import { Readable, PassThrough } from 'stream';
+import { createGzip } from 'zlib';
 import { env } from '@config';
 import {
   IStorageGateway,
@@ -33,24 +34,99 @@ export class S3StorageAdapter implements IStorageGateway {
   }
 
   async upload(options: UploadOptions): Promise<UploadResult> {
-    const { stream, path, mimeType, tenantId } = options;
+    const {
+      stream,
+      path,
+      mimeType = 'application/octet-stream',
+      tenantId,
+      userId,
+      onProgress,
+    } = options;
     const key = `${tenantId}/${path}`;
 
-    // Simple upload without progress tracking for now
-    const command = new PutObjectCommand({
-      Bucket: env.AWS_S3_BUCKET,
-      Key: key,
-      Body: stream,
-      ContentType: mimeType,
+    // Optimize stream with highWaterMark for better performance
+    const optimizedStream = stream.pipe(
+      new PassThrough({ highWaterMark: 256 * 1024 }), // 256KB chunks
+    );
+
+    // Apply compression for text-based files
+    let finalStream: Readable = optimizedStream;
+    let finalMimeType = mimeType;
+    let finalKey = key;
+    const shouldCompressFile = this.shouldCompress(mimeType);
+
+    if (shouldCompressFile) {
+      finalStream = optimizedStream.pipe(createGzip());
+      finalMimeType = `${mimeType}; charset=utf-8`;
+      finalKey = `${key}.gz`;
+    }
+
+    // Use Upload class for multipart upload with progress tracking
+    const upload = new Upload({
+      client: this.client,
+      params: {
+        Bucket: env.AWS_S3_BUCKET,
+        Key: finalKey,
+        Body: finalStream,
+        ContentType: finalMimeType,
+        Metadata: {
+          tenantId,
+          userId: userId || '',
+          originalMimeType: mimeType,
+          uploadedAt: new Date().toISOString(),
+        },
+      },
+      queueSize: 4, // Upload 4 parts in parallel
+      partSize: 64 * 1024 * 1024, // 64MB parts for large files
+      leavePartsOnError: false,
     });
 
-    await this.client.send(command);
+    // Track upload progress
+    let totalSize = 0;
+    upload.on('httpUploadProgress', (progress) => {
+      if (progress.total) {
+        totalSize = progress.total;
+      }
+      const loaded = progress.loaded || 0;
+      onProgress?.(loaded);
+    });
 
-    return {
-      path: key,
-      size: 0, // TODO: Get actual size
-      uploadedAt: new Date(),
-    };
+    try {
+      await upload.done();
+
+      return {
+        path: finalKey,
+        size: totalSize,
+        uploadedAt: new Date(),
+        compressed: shouldCompressFile,
+      };
+    } catch (error) {
+      // Cleanup on error
+      try {
+        await this.client.send(
+          new DeleteObjectCommand({
+            Bucket: env.AWS_S3_BUCKET,
+            Key: finalKey,
+          }),
+        );
+      } catch (cleanupError) {
+        console.warn('Failed to cleanup failed upload:', cleanupError);
+      }
+      throw error;
+    }
+  }
+
+  private shouldCompress(mimeType: string): boolean {
+    const compressibleTypes = [
+      'text/plain',
+      'text/html',
+      'text/css',
+      'text/javascript',
+      'application/json',
+      'application/xml',
+      'application/javascript',
+    ];
+    return compressibleTypes.some((type) => mimeType.startsWith(type));
   }
 
   async download(options: DownloadOptions): Promise<Readable> {

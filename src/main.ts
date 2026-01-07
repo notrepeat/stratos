@@ -8,6 +8,8 @@ import { syncSpiceDBSchema } from './core/infrastructure/permissions/validator';
 import { testS3Connection as validateStorage } from './core/infrastructure/storage/validator';
 // SuperAdminService now moved to Users slice
 import { GlobalExceptionFilter } from './core/filters/global-exception.filter';
+import { TenantConnectionManager } from './core/services/tenant-connection-manager.service';
+import { TenantThrottlerService } from './core/services/tenant-throttler.service';
 // Load environment variables from .env file
 config({ path: '.env' });
 
@@ -74,6 +76,35 @@ async function bootstrap() {
     console.log(`🎉 Server is running on port ${env.PORT}`);
     console.log('🎉 All systems operational');
     console.log('🎉 ================================\n');
+
+    // Graceful shutdown handling
+    const tenantConnectionManager = app.get(TenantConnectionManager);
+    const tenantThrottler = app.get(TenantThrottlerService);
+
+    const gracefulShutdown = async (signal: string) => {
+      console.log(`\n📴 Received ${signal}. Starting graceful shutdown...`);
+
+      try {
+        // Stop accepting new connections
+        await app.close();
+
+        // Cleanup throttler records
+        tenantThrottler.cleanup();
+
+        // Close all database connections
+        await tenantConnectionManager.shutdown();
+
+        console.log('✅ Graceful shutdown completed');
+        process.exit(0);
+      } catch (error) {
+        console.error('❌ Error during graceful shutdown:', error);
+        process.exit(1);
+      }
+    };
+
+    // Listen for shutdown signals
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
   } catch (error) {
     console.error('\n💀 ================================');
     console.error('💀 BOOTSTRAP FAILED');

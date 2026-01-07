@@ -16,9 +16,25 @@ export class TenantConnectionManager {
   private connections = new Map<string, TenantConnection>();
   private mainConnection: TenantConnection | null = null;
 
+  // Limits to prevent connection pool leaks
+  private readonly MAX_TENANT_CONNECTIONS = 50; // Max 50 tenants with active connections
+  private readonly MAX_CONNECTIONS_PER_TENANT = 10; // Max 10 connections per tenant
+  private readonly IDLE_TIMEOUT = 30 * 60 * 1000; // 30 minutes
+
+  // LRU tracking for eviction
+  private connectionOrder: string[] = [];
+
   constructor() {
     // Initialize main connection for tenant metadata
     this.initializeMainConnection();
+
+    // Start cleanup interval (every 5 minutes)
+    setInterval(
+      () => {
+        this.cleanupIdleConnections();
+      },
+      5 * 60 * 1000,
+    );
   }
 
   /**
@@ -31,12 +47,23 @@ export class TenantConnectionManager {
     if (this.connections.has(cacheKey)) {
       const connection = this.connections.get(cacheKey)!;
       connection.lastUsed = new Date();
+
+      // Update LRU order
+      this.updateLRUOrder(cacheKey);
       return connection.database;
+    }
+
+    // Check if we need to evict connections (LRU)
+    if (this.connections.size >= this.MAX_TENANT_CONNECTIONS) {
+      await this.evictLRUConnection();
     }
 
     // Create new connection
     const connection = await this.createTenantConnection(databaseName);
     this.connections.set(cacheKey, connection);
+
+    // Add to LRU order
+    this.connectionOrder.push(cacheKey);
 
     return connection.database;
   }
@@ -96,8 +123,8 @@ export class TenantConnectionManager {
       user: env.DB_USER,
       password: env.DB_PASSWORD,
       database: databaseName, // Connect to specific tenant database
-      max: 10, // Smaller pool per tenant
-      idleTimeoutMillis: env.TENANT_DB_IDLE_TIMEOUT,
+      max: this.MAX_CONNECTIONS_PER_TENANT, // Enforce limit per tenant
+      idleTimeoutMillis: this.IDLE_TIMEOUT,
     });
 
     const database = drizzle(pool);
@@ -121,25 +148,83 @@ export class TenantConnectionManager {
   }
 
   /**
-   * Cleanup idle connections (called by cron job)
+   * Update LRU order when connection is accessed
    */
-  cleanupIdleConnections(maxIdleTime: number = 30 * 60 * 1000): void {
-    // 30 minutes
+  private updateLRUOrder(cacheKey: string): void {
+    const index = this.connectionOrder.indexOf(cacheKey);
+    if (index > -1) {
+      // Move to end (most recently used)
+      this.connectionOrder.splice(index, 1);
+      this.connectionOrder.push(cacheKey);
+    }
+  }
+
+  /**
+   * Evict least recently used connection when limit is reached
+   */
+  private async evictLRUConnection(): Promise<void> {
+    if (this.connectionOrder.length === 0) return;
+
+    const lruKey = this.connectionOrder.shift()!; // Remove from front (LRU)
+    const connection = this.connections.get(lruKey);
+
+    if (connection) {
+      console.log(`🗑️ Evicting LRU connection: ${lruKey}`);
+      await connection.pool.end();
+      this.connections.delete(lruKey);
+    }
+  }
+
+  /**
+   * Cleanup idle connections (called automatically every 5 minutes)
+   */
+  cleanupIdleConnections(): void {
     const now = Date.now();
     const toRemove: string[] = [];
 
     for (const [key, connection] of this.connections) {
-      if (now - connection.lastUsed.getTime() > maxIdleTime) {
+      if (now - connection.lastUsed.getTime() > this.IDLE_TIMEOUT) {
         connection.pool.end();
         toRemove.push(key);
       }
     }
 
-    toRemove.forEach((key) => this.connections.delete(key));
+    // Remove from LRU order as well
+    toRemove.forEach((key) => {
+      const index = this.connectionOrder.indexOf(key);
+      if (index > -1) {
+        this.connectionOrder.splice(index, 1);
+      }
+      this.connections.delete(key);
+    });
 
     if (toRemove.length > 0) {
       console.log(`🧹 Cleaned up ${toRemove.length} idle tenant connections`);
     }
+  }
+
+  /**
+   * Graceful shutdown - close all connections
+   */
+  async shutdown(): Promise<void> {
+    console.log('🔄 Shutting down tenant connection manager...');
+
+    // Close all tenant connections
+    const closePromises = Array.from(this.connections.values()).map(
+      (connection) => connection.pool.end(),
+    );
+
+    await Promise.all(closePromises);
+    this.connections.clear();
+    this.connectionOrder.length = 0;
+
+    // Close main connection
+    if (this.mainConnection) {
+      await this.mainConnection.pool.end();
+      this.mainConnection = null;
+    }
+
+    console.log('✅ All database connections closed');
   }
 
   /**

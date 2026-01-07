@@ -28,6 +28,7 @@ export interface UploadResult {
   path: string;
   size: number;
   uploadedAt: Date;
+  compressed?: boolean;
 }
 
 export interface FileMetadata {
