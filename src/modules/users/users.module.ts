@@ -30,6 +30,7 @@ import { DatabaseModule } from '../../core/infrastructure/database/database.modu
     SuperAdminService,
     USER_REPOSITORY, // ✅ Exportamos el REPOSITORY para que otros módulos lo usen
     USER_GATEWAY, // ✅ Exportamos el GATEWAY, NO el Service
+    UserResolver, // ✅ Exportamos el GraphQL resolver
   ],
 })
 export class UsersModule {}

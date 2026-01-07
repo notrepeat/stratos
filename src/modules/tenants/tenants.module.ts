@@ -17,6 +17,6 @@ import { TenantConnectionManager } from '@core/services/tenant-connection-manage
       useClass: TenantRepositoryAdapter,
     },
   ],
-  exports: [TenantService, TENANT_REPOSITORY],
+  exports: [TenantService, TENANT_REPOSITORY, TenantResolver],
 })
 export class TenantsModule {}

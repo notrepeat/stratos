@@ -57,16 +57,8 @@ export async function testS3Connection(): Promise<void> {
 
     console.log(`✅ S3 bucket '${env.AWS_S3_BUCKET}' is accessible`);
   } catch (error) {
-    console.warn(
-      '⚠️  S3 connection failed (optional for development):',
-      (error as Error).message,
-    );
-    console.log(
-      '   ⚠️  Continuing without S3 - storage features will not work',
-    );
-    // Don't throw error in development to allow testing other features
-    if (env.NODE_ENV === 'production') {
-      throw error;
-    }
+    console.error('❌ S3 connection failed:', (error as Error).message);
+    console.log('   ❌ Cannot continue without S3 - storage is required');
+    throw error;
   }
 }

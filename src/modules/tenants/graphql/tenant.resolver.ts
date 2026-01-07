@@ -1,12 +1,10 @@
 import { Resolver, Query, Mutation, Args, ID } from '@nestjs/graphql';
-import { UseGuards } from '@nestjs/common';
 import { TenantService } from '../core/services/tenant.service';
-import { AuthGuard } from '../../../core/guards/auth.guard';
 import { Tenant } from './tenant.type';
 import { CreateTenantInput, UpdateTenantInput } from './tenant.input';
 
 @Resolver(() => Tenant)
-@UseGuards(AuthGuard)
+// @UseGuards(AuthGuard) // Temporarily disabled
 export class TenantResolver {
   constructor(private readonly tenantService: TenantService) {}
 

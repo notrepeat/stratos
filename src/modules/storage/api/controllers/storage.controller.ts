@@ -91,12 +91,15 @@ export class StorageController {
     });
 
     let uploadResult: any = null;
-    let uploadProgress: { loaded: number; total: number; percentage: number } =
-      {
-        loaded: 0,
-        total: 0,
-        percentage: 0,
-      };
+    const uploadProgress: {
+      loaded: number;
+      total: number;
+      percentage: number;
+    } = {
+      loaded: 0,
+      total: 0,
+      percentage: 0,
+    };
 
     // Store progress in memory for polling (in production, use Redis/database)
     const progressKey = `${tenantId}_${userId}_${Date.now()}`;

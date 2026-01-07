@@ -29,6 +29,7 @@
   },
   "dependencies": {
     "@apollo/server": "^5.2.0",
+    "@as-integrations/express5": "^1.1.2",
     "@authzed/authzed-node": "^1.6.1",
     "@aws-sdk/client-s3": "^3.964.0",
     "@aws-sdk/lib-storage": "^3.964.0",

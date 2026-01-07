@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 import { GraphqlModule } from './graphql/graphql.module';
 import { StorageCoreModule } from './core/infrastructure/storage/storage.module';
 import { TenantThrottlerModule } from './core/services/tenant-throttler.module';
@@ -11,6 +12,7 @@ import { TenantsModule } from './modules/tenants/tenants.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { PermissionsModule } from './core/permissions/permissions.module';
 import { DatabaseModule } from './core/infrastructure/database/database.module';
+import { TenantInterceptor } from './core/shared/interceptors/tenant.interceptor';
 
 @Module({
   imports: [
@@ -36,6 +38,11 @@ import { DatabaseModule } from './core/infrastructure/database/database.module';
     PermissionsModule,
   ],
   controllers: [HealthController],
-  providers: [],
+  providers: [
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: TenantInterceptor,
+    },
+  ],
 })
 export class AppModule {}

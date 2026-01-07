@@ -1,17 +1,12 @@
+// Load environment variables from .env file FIRST
 import { config } from 'dotenv';
+config({ path: '.env' });
+
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { env } from '@config';
-import { ensureDatabaseExists } from './core/infrastructure/database/provisioner';
-import { runMigrations } from './core/infrastructure/database/migrator';
-import { syncSpiceDBSchema } from './core/infrastructure/permissions/validator';
-import { testS3Connection as validateStorage } from './core/infrastructure/storage/validator';
-// SuperAdminService now moved to Users slice
 import { GlobalExceptionFilter } from './core/filters/global-exception.filter';
-import { TenantConnectionManager } from './core/services/tenant-connection-manager.service';
-import { TenantThrottlerService } from './core/services/tenant-throttler.service';
-// Load environment variables from .env file
-config({ path: '.env' });
+import { testS3Connection } from './core/infrastructure/storage/validator';
 
 async function bootstrap() {
   console.log('🚀 Starting bootstrap sequence...\n');
@@ -23,49 +18,17 @@ async function bootstrap() {
     console.log(`   PORT: ${env.PORT}`);
     console.log('   ✅ Environment validated\n');
 
-    // Phase 2: Database
-    console.log('📋 Phase 2: Database Provisioning');
-    await ensureDatabaseExists();
-
-    // Run migrations with app user (assumes tables exist or user has permissions)
-    console.log('🔄 Running database migrations...');
-    try {
-      await runMigrations();
-      console.log('✅ Migrations completed successfully');
-    } catch (error) {
-      // If this is the first run and tables don't exist, inform user to run manually with root
-      if ((error as Error).message?.includes('does not exist')) {
-        console.error('❌ Migration failed: Tables do not exist.');
-        console.error('💡 SOLUTION: Run migrations manually first:');
-        console.error(
-          '   1. Temporarily set DB_USER and DB_PASSWORD to root credentials in .env',
-        );
-        console.error('   2. Run: pnpm exec drizzle-kit migrate');
-        console.error('   3. Restore app user credentials');
-        throw error;
-      } else {
-        throw error;
-      }
-    }
-
-    console.log('   ✅ Database ready\n');
-
-    // Phase 3: Permissions
-    console.log('📋 Phase 3: Permission System');
-    await syncSpiceDBSchema();
-    console.log('   ✅ SpiceDB ready\n');
-
-    // Phase 4: Storage
-    console.log('📋 Phase 4: Storage System');
-    await validateStorage();
-    console.log('   ✅ S3 ready\n');
+    // Phase 2: S3 Validation
+    console.log('📋 Phase 2: S3 Validation');
+    await testS3Connection();
+    console.log('   ✅ S3 validated\n');
 
     // Phase 5: Start Server
     console.log('📋 Phase 5: Starting NestJS Application');
     const app = await NestFactory.create(AppModule);
 
     app.enableCors();
-    app.setGlobalPrefix('api');
+    app.setGlobalPrefix('api/v1');
 
     // Apply global exception filter
     app.useGlobalFilters(new GlobalExceptionFilter());
@@ -74,37 +37,10 @@ async function bootstrap() {
 
     console.log('\n🎉 ================================');
     console.log(`🎉 Server is running on port ${env.PORT}`);
-    console.log('🎉 All systems operational');
+    console.log(
+      '🎉 GraphQL endpoint available at: http://localhost:${env.PORT}/graphql',
+    );
     console.log('🎉 ================================\n');
-
-    // Graceful shutdown handling
-    const tenantConnectionManager = app.get(TenantConnectionManager);
-    const tenantThrottler = app.get(TenantThrottlerService);
-
-    const gracefulShutdown = async (signal: string) => {
-      console.log(`\n📴 Received ${signal}. Starting graceful shutdown...`);
-
-      try {
-        // Stop accepting new connections
-        await app.close();
-
-        // Cleanup throttler records
-        tenantThrottler.cleanup();
-
-        // Close all database connections
-        await tenantConnectionManager.shutdown();
-
-        console.log('✅ Graceful shutdown completed');
-        process.exit(0);
-      } catch (error) {
-        console.error('❌ Error during graceful shutdown:', error);
-        process.exit(1);
-      }
-    };
-
-    // Listen for shutdown signals
-    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
   } catch (error) {
     console.error('\n💀 ================================');
     console.error('💀 BOOTSTRAP FAILED');
@@ -114,4 +50,6 @@ async function bootstrap() {
   }
 }
 
-bootstrap();
+(async () => {
+  await bootstrap();
+})();

@@ -11,6 +11,20 @@ import { AppException } from '../exceptions/app.exceptions';
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost) {
+    // Try to get HTTP context - if it fails or response is not available, it's likely GraphQL
+    try {
+      const ctx = host.switchToHttp();
+      const response = ctx.getResponse<Response>();
+
+      // Additional check: if response doesn't have status method, it's GraphQL
+      if (typeof response?.status !== 'function') {
+        throw exception; // Let GraphQL handle it
+      }
+    } catch {
+      // For GraphQL or other non-HTTP contexts, let the error bubble up
+      throw exception;
+    }
+
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
 
@@ -62,9 +76,9 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       // En desarrollo, incluir más detalles
       if (process.env.NODE_ENV === 'development') {
         errorResponse.details = {
-          name: (exception as Error).name,
-          message: (exception as Error).message,
-          stack: (exception as Error).stack,
+          name: exception.name,
+          message: exception.message,
+          stack: exception.stack,
         };
       }
     } else {

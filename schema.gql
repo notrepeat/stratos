@@ -2,15 +2,6 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
-type BillingSummary {
-  overdueInvoices: Float!
-  paidInvoices: Float!
-  pendingInvoices: Float!
-  totalInvoices: Float!
-  totalPaid: Float!
-  totalPending: Float!
-}
-
 input CancelInvoiceInput {
   id: String!
 }
@@ -91,7 +82,6 @@ input ProcessPaymentInput {
 }
 
 type Query {
-  billingSummary(tenantId: String!): BillingSummary!
   deepHealth: String!
   health: String!
   invoice(id: ID!): Invoice!

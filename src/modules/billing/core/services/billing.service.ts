@@ -1,11 +1,14 @@
 import { Injectable, Inject } from '@nestjs/common';
 import type { IInvoiceRepository } from '../ports/invoice.repository.port';
 import type { IPaymentRepository } from '../ports/payment.repository.port';
+import type { ISubscriptionRepository } from '../ports/subscription.repository.port';
 import { INVOICE_REPOSITORY } from '../ports/invoice.repository.port';
 import { PAYMENT_REPOSITORY } from '../ports/payment.repository.port';
+import { SUBSCRIPTION_REPOSITORY } from '../ports/subscription.repository.port';
 import { CacheService } from '@core/services/cache.service';
 import { Invoice } from '../domain/invoice.entity';
 import { Payment } from '../domain/payment.entity';
+import { Subscription } from '../domain/subscription.entity';
 import {
   NotFoundException,
   ConflictException,
@@ -14,7 +17,6 @@ import {
 
 @Injectable()
 export class BillingService {
-  private readonly MONTHLY_PRICE = 29.99;
   private readonly CURRENCY = 'USD';
 
   constructor(
@@ -22,6 +24,8 @@ export class BillingService {
     private readonly invoiceRepository: IInvoiceRepository,
     @Inject(PAYMENT_REPOSITORY)
     private readonly paymentRepository: IPaymentRepository,
+    @Inject(SUBSCRIPTION_REPOSITORY)
+    private readonly subscriptionRepository: ISubscriptionRepository,
     private readonly cacheService: CacheService,
   ) {}
 
@@ -51,14 +55,21 @@ export class BillingService {
       );
     }
 
+    // Get subscription for pricing
+    const subscription =
+      await this.subscriptionRepository.findByTenantId(tenantId);
+    if (!subscription) {
+      throw new NotFoundException('Suscripción', tenantId);
+    }
+
     // Calculate due date (30 days from billing period end)
     const dueDate = new Date(billingPeriodEnd);
     dueDate.setDate(dueDate.getDate() + 30);
 
     return this.invoiceRepository.create({
       tenantId,
-      amount: this.MONTHLY_PRICE,
-      currency: this.CURRENCY,
+      amount: subscription.price,
+      currency: subscription.currency,
       billingPeriodStart,
       billingPeriodEnd,
       dueDate,
@@ -179,40 +190,113 @@ export class BillingService {
     return this.paymentRepository.update(paymentId, payment);
   }
 
-  // Get billing summary for a tenant (with caching)
-  async getBillingSummary(tenantId: string): Promise<{
-    totalInvoices: number;
-    paidInvoices: number;
-    pendingInvoices: number;
-    overdueInvoices: number;
-    totalPaid: number;
-    totalPending: number;
-  }> {
-    const cacheKey = `billing:summary:${tenantId}`;
+  // Subscription management
+  async createSubscription(data: {
+    tenantId: string;
+    plan: 'basic' | 'pro' | 'enterprise';
+    billingCycle: 'monthly' | 'yearly';
+  }): Promise<Subscription> {
+    const prices = {
+      basic: { monthly: 9.99, yearly: 99.99 },
+      pro: { monthly: 29.99, yearly: 299.99 },
+      enterprise: { monthly: 99.99, yearly: 999.99 },
+    };
 
-    return this.cacheService.getOrSet(
-      cacheKey,
-      async () => {
-        const invoices = await this.invoiceRepository.findByTenantId(tenantId);
+    const price = prices[data.plan][data.billingCycle];
+    const now = new Date();
+    const nextBillingDate = new Date(now);
 
-        const summary = {
-          totalInvoices: invoices.length,
-          paidInvoices: invoices.filter((inv) => inv.isPaid()).length,
-          pendingInvoices: invoices.filter((inv) => inv.status === 'pending')
-            .length,
-          overdueInvoices: invoices.filter((inv) => inv.status === 'overdue')
-            .length,
-          totalPaid: invoices
-            .filter((inv) => inv.isPaid())
-            .reduce((sum, inv) => sum + inv.amount, 0),
-          totalPending: invoices
-            .filter((inv) => !inv.isPaid() && inv.status !== 'cancelled')
-            .reduce((sum, inv) => sum + inv.amount, 0),
-        };
+    if (data.billingCycle === 'monthly') {
+      nextBillingDate.setMonth(nextBillingDate.getMonth() + 1);
+    } else {
+      nextBillingDate.setFullYear(nextBillingDate.getFullYear() + 1);
+    }
 
-        return summary;
-      },
-      300000, // Cache for 5 minutes
-    );
+    return this.subscriptionRepository.create({
+      tenantId: data.tenantId,
+      plan: data.plan,
+      price,
+      currency: this.CURRENCY,
+      billingCycle: data.billingCycle,
+      startDate: now,
+      nextBillingDate,
+    });
+  }
+
+  async getSubscriptionByTenantId(
+    tenantId: string,
+  ): Promise<Subscription | null> {
+    return this.subscriptionRepository.findByTenantId(tenantId);
+  }
+
+  async updateSubscription(
+    id: string,
+    data: {
+      plan?: 'basic' | 'pro' | 'enterprise';
+      billingCycle?: 'monthly' | 'yearly';
+    },
+  ): Promise<Subscription> {
+    const subscription = await this.subscriptionRepository.findById(id);
+    if (!subscription) {
+      throw new NotFoundException('Suscripción', id);
+    }
+
+    if (data.plan) {
+      subscription.plan = data.plan;
+    }
+    if (data.billingCycle) {
+      subscription.billingCycle = data.billingCycle;
+      subscription.updateNextBillingDate();
+    }
+
+    return this.subscriptionRepository.update(id, subscription);
+  }
+
+  async cancelSubscription(id: string): Promise<Subscription> {
+    const subscription = await this.subscriptionRepository.findById(id);
+    if (!subscription) {
+      throw new NotFoundException('Suscripción', id);
+    }
+
+    subscription.cancel();
+    return this.subscriptionRepository.update(id, subscription);
+  }
+
+  async generateInvoicesForDueSubscriptions(): Promise<Invoice[]> {
+    const dueSubscriptions =
+      await this.subscriptionRepository.findDueForBilling();
+    const invoices: Invoice[] = [];
+
+    for (const subscription of dueSubscriptions) {
+      const billingPeriodStart = new Date(subscription.nextBillingDate);
+      const billingPeriodEnd = new Date(subscription.nextBillingDate);
+
+      if (subscription.billingCycle === 'monthly') {
+        billingPeriodStart.setMonth(billingPeriodStart.getMonth() - 1);
+      } else {
+        billingPeriodStart.setFullYear(billingPeriodStart.getFullYear() - 1);
+      }
+
+      try {
+        const invoice = await this.generateMonthlyInvoice(
+          subscription.tenantId,
+          billingPeriodStart,
+          billingPeriodEnd,
+        );
+        invoices.push(invoice);
+
+        // Update next billing date
+        subscription.updateNextBillingDate();
+        await this.subscriptionRepository.update(subscription.id, subscription);
+      } catch (error) {
+        // Log error but continue with other subscriptions
+        console.error(
+          `Failed to generate invoice for tenant ${subscription.tenantId}:`,
+          error,
+        );
+      }
+    }
+
+    return invoices;
   }
 }

@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Body, Param } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+} from '@nestjs/common';
 import { BillingService } from '@modules/billing/core/services/billing.service';
 
 @Controller('billing')
@@ -155,16 +163,6 @@ export class BillingController {
     }));
   }
 
-  // Get billing summary for a tenant
-  @Get('summary/:tenantId')
-  async getBillingSummary(@Param('tenantId') tenantId: string) {
-    const summary = await this.billingService.getBillingSummary(tenantId);
-    return {
-      success: true,
-      data: summary,
-    };
-  }
-
   // Cancel invoice
   @Post('invoices/:id/cancel')
   async cancelInvoice(@Param('id') id: string) {
@@ -207,5 +205,111 @@ export class BillingController {
           (1000 * 60 * 60 * 24),
       ),
     }));
+  }
+
+  // Create subscription for a tenant
+  @Post('subscriptions')
+  async createSubscription(
+    @Body()
+    dto: {
+      tenantId: string;
+      plan: 'basic' | 'pro' | 'enterprise';
+      billingCycle: 'monthly' | 'yearly';
+    },
+  ) {
+    const subscription = await this.billingService.createSubscription(dto);
+    return {
+      success: true,
+      data: {
+        id: subscription.id,
+        tenantId: subscription.tenantId,
+        plan: subscription.plan,
+        status: subscription.status,
+        price: subscription.price,
+        currency: subscription.currency,
+        billingCycle: subscription.billingCycle,
+        startDate: subscription.startDate,
+        nextBillingDate: subscription.nextBillingDate,
+      },
+    };
+  }
+
+  // Get subscription for a tenant
+  @Get('subscriptions/tenant/:tenantId')
+  async getSubscriptionByTenantId(@Param('tenantId') tenantId: string) {
+    const subscription =
+      await this.billingService.getSubscriptionByTenantId(tenantId);
+    if (!subscription) {
+      return { success: false, message: 'Subscription not found' };
+    }
+
+    return {
+      success: true,
+      data: {
+        id: subscription.id,
+        tenantId: subscription.tenantId,
+        plan: subscription.plan,
+        status: subscription.status,
+        price: subscription.price,
+        currency: subscription.currency,
+        billingCycle: subscription.billingCycle,
+        startDate: subscription.startDate,
+        nextBillingDate: subscription.nextBillingDate,
+      },
+    };
+  }
+
+  // Update subscription
+  @Put('subscriptions/:id')
+  async updateSubscription(
+    @Param('id') id: string,
+    @Body()
+    dto: {
+      plan?: 'basic' | 'pro' | 'enterprise';
+      billingCycle?: 'monthly' | 'yearly';
+    },
+  ) {
+    const subscription = await this.billingService.updateSubscription(id, dto);
+    return {
+      success: true,
+      data: {
+        id: subscription.id,
+        plan: subscription.plan,
+        billingCycle: subscription.billingCycle,
+        nextBillingDate: subscription.nextBillingDate,
+      },
+    };
+  }
+
+  // Cancel subscription
+  @Delete('subscriptions/:id')
+  async cancelSubscription(@Param('id') id: string) {
+    const subscription = await this.billingService.cancelSubscription(id);
+    return {
+      success: true,
+      data: {
+        id: subscription.id,
+        status: subscription.status,
+        endDate: subscription.endDate,
+      },
+    };
+  }
+
+  // Generate invoices for due subscriptions
+  @Post('subscriptions/generate-invoices')
+  async generateInvoicesForDueSubscriptions() {
+    const invoices =
+      await this.billingService.generateInvoicesForDueSubscriptions();
+    return {
+      success: true,
+      data: invoices.map((invoice) => ({
+        id: invoice.id,
+        tenantId: invoice.tenantId,
+        amount: invoice.amount,
+        billingPeriodStart: invoice.billingPeriodStart,
+        billingPeriodEnd: invoice.billingPeriodEnd,
+        dueDate: invoice.dueDate,
+      })),
+    };
   }
 }
