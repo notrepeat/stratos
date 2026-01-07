@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  # PostgreSQL - Base de datos principal
+  postgres:
+    image: postgres:16
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: PZCmS6gpV73Kb1Yq
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # SpiceDB - Gateway de autorización
+  spicedb:
+    image: authzed/spicedb:latest
+    ports:
+      - '50052:50051'
+      - '8081:8080'
+    command: serve
+    volumes:
+      - spicedb-data:/var/lib/spicedb
+    environment:
+      - SPICEDB_GRPC_PRESHARED_KEY=${SPICEDB_PRESHARED_KEY:-your-preshared-key-here}
+      - SPICEDB_DATASTORE_ENGINE=memory
+    healthcheck:
+      test: ['CMD', 'grpc_health_probe', '-addr=localhost:50051']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # RustFS - S3 compatible storage for development
+  rustfs:
+    image: rustfs/rustfs:latest
+    volumes:
+      - .rustfs-data:/data
+    ports:
+      - 9002:9000
+      - 9003:9001
+    environment:
+      - RUSTFS_ACCESS_KEY=rustfsadmin
+      - RUSTFS_SECRET_KEY=ylcos4wll2ymvjdeqweqweqwr
+      - RUSTFS_ADDRESS=0.0.0.0:9000
+      - RUSTFS_CONSOLE_ADDRESS=0.0.0.0:9001
+      - RUSTFS_CONSOLE_ENABLE=true
+      - RUSTFS_CORS_ALLOWED_ORIGINS=*
+      - RUSTFS_CONSOLE_CORS_ALLOWED_ORIGINS=*
+    command: /data
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  spicedb-data:
+  rustfs-data:

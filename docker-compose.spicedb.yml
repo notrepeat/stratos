@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  spicedb:
+    image: authzed/spicedb:latest
+    ports:
+      - '50051:50051' # gRPC port
+      - '8443:8443' # HTTP gateway
+      - '9090:9090' # metrics
+    command: serve --grpc-preshared-key "mypresharedkey" --http-enabled
+    environment:
+      - SPICEDB_GRPC_PRESHARED_KEY=mypresharedkey
+      - SPICEDB_HTTP_ENABLED=true
+    volumes:
+      - spicedb_data:/data
+    healthcheck:
+      test: ['CMD', 'grpc_health_probe', '-addr=localhost:50051']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  spicedb_data:

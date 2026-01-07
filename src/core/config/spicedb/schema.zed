@@ -1,0 +1,81 @@
+/**
+ * SpiceDB Authorization Schema for SaaS Enterprise
+ *
+ * This schema defines the authorization model for our multi-tenant SaaS application.
+ * It follows the Zanzibar authorization model with resources, subjects, and relations.
+ */
+
+definition user {}
+
+/**
+ * Tenant resource - represents a tenant/organization in the SaaS
+ */
+definition tenant {
+    // Relations
+    relation admin: user
+    relation member: user
+
+    // Permissions
+    permission manage = admin
+    permission read = admin + member
+    permission update = admin
+    permission delete = admin
+    permission manage_billing = admin
+    permission invite_users = admin
+}
+
+/**
+ * User resource - represents users within the system
+ */
+definition app_user {
+    // Relations
+    relation owner: user
+    relation belongs_to: tenant
+
+    // Permissions
+    permission read = owner + belongs_to#admin + belongs_to#member
+    permission update = owner + belongs_to#admin
+    permission delete = belongs_to#admin
+}
+
+/**
+ * Invoice resource - represents billing invoices
+ */
+definition invoice {
+    // Relations
+    relation belongs_to: tenant
+    relation created_by: user
+
+    // Permissions
+    permission read = belongs_to#admin + belongs_to#member + created_by
+    permission update = belongs_to#admin
+    permission delete = belongs_to#admin
+    permission pay = belongs_to#admin + belongs_to#member
+}
+
+/**
+ * Payment resource - represents payments for invoices
+ */
+definition payment {
+    // Relations
+    relation belongs_to: tenant
+    relation belongs_to_invoice: invoice
+    relation created_by: user
+
+    // Permissions
+    permission read = belongs_to#admin + belongs_to#member + created_by
+    permission refund = belongs_to#admin
+}
+
+/**
+ * Global permissions for super admin users
+ * Super admins can do everything across all tenants
+ */
+definition super_admin {
+    relation user: user
+
+    permission manage_all_tenants = user
+    permission manage_all_users = user
+    permission manage_all_billing = user
+    permission system_admin = user
+}
