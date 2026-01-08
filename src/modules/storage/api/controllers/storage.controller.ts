@@ -13,9 +13,9 @@ import {
 } from '@nestjs/common';
 import type { Response } from 'express';
 import Busboy from 'busboy';
-import { STORAGE_GATEWAY } from '../../../../core/infrastructure/storage/ports/storage.port';
-import type { IStorageGateway } from '../../../../core/infrastructure/storage/ports/storage.port';
-import { AuthGuard } from '../../../../core/guards/auth.guard';
+import { STORAGE_GATEWAY } from '@core/infrastructure/storage/ports/storage.port';
+import type { IStorageGateway } from '@core/infrastructure/storage/ports/storage.port';
+import { AuthGuard } from '@core/guards/auth.guard';
 import { Readable } from 'stream';
 
 interface AuthenticatedRequest extends Request {

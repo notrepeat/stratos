@@ -5,9 +5,9 @@ import {
   IUserRepository,
   CreateUserData,
 } from '../../core/ports/user.repository.port';
-import { users } from '../../../../core/infrastructure/database/user.schema';
+import { users } from '@core/infrastructure/database/user.schema';
 import { User } from '../../core/domain/user.entity';
-import { TenantDatabaseService } from '../../../../core/services/tenant-database.service';
+import { TenantDatabaseService } from '@core/services/tenant-database.service';
 
 @Injectable()
 export class UserRepositoryAdapter implements IUserRepository {

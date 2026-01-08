@@ -1,6 +1,6 @@
 import { Injectable, NestMiddleware } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
-import { TenantService } from '../../modules/tenants/core/services/tenant.service';
+import { TenantService } from '@modules/tenants/core/services/tenant.service';
 
 export interface TenantRequest extends Request {
   tenantContext?: {

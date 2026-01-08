@@ -5,9 +5,9 @@ import {
   IInvoiceRepository,
   CreateInvoiceData,
 } from '../../core/ports/invoice.repository.port';
-import { invoices } from '../../../../core/infrastructure/database/invoice.schema';
+import { invoices } from '@core/infrastructure/database/invoice.schema';
 import { Invoice } from '../../core/domain/invoice.entity';
-import { TenantDatabaseService } from '../../../../core/services/tenant-database.service';
+import { TenantDatabaseService } from '@core/services/tenant-database.service';
 
 @Injectable()
 export class InvoiceRepositoryAdapter implements IInvoiceRepository {

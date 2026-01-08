@@ -7,13 +7,13 @@ import {
   Param,
   UseGuards,
 } from '@nestjs/common';
-import { PermissionService } from '../../core/services/permission.service';
-import { AuthGuard } from '../../core/guards/auth.guard';
-import { PermissionGuard } from '../../core/guards/permission.guard';
+import { PermissionService } from '@core/services/permission.service';
+import { AuthGuard } from '@core/guards/auth.guard';
+import { PermissionGuard } from '@core/guards/permission.guard';
 import {
   RequireTenantAdmin,
   RequireSuperAdmin,
-} from '../../core/decorators/permissions.decorator';
+} from '@core/decorators/permissions.decorator';
 
 @Controller('permissions')
 @UseGuards(AuthGuard, PermissionGuard)

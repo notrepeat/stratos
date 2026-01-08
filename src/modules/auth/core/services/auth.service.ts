@@ -1,6 +1,6 @@
 import { Injectable, Inject } from '@nestjs/common';
 import * as argon2 from 'argon2';
-import type { IUserRepository } from '../../../users/core/ports/user.repository.port';
+import type { IUserRepository } from '@modules/users/core/ports/user.repository.port';
 import { USER_REPOSITORY } from '../../../users/core/ports/user.repository.port';
 import { SessionService } from './session.service';
 

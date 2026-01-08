@@ -5,9 +5,9 @@ import {
   ISubscriptionRepository,
   CreateSubscriptionData,
 } from '../../core/ports/subscription.repository.port';
-import { subscriptions } from '../../../../core/infrastructure/database/subscription.schema';
+import { subscriptions } from '@core/infrastructure/database/subscription.schema';
 import { Subscription } from '../../core/domain/subscription.entity';
-import { TenantDatabaseService } from '../../../../core/services/tenant-database.service';
+import { TenantDatabaseService } from '@core/services/tenant-database.service';
 
 @Injectable()
 export class SubscriptionRepositoryAdapter implements ISubscriptionRepository {

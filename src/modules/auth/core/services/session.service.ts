@@ -3,8 +3,8 @@ import { eq, and, gt } from 'drizzle-orm';
 import { ulid } from 'ulid';
 import { randomBytes } from 'crypto';
 import { sessions } from '../../infrastructure/database/session.schema';
-import { env } from '../../../../core/config/env.config';
-import { TenantDatabaseService } from '../../../../core/services/tenant-database.service';
+import { env } from '@core/config/env.config';
+import { TenantDatabaseService } from '@core/services/tenant-database.service';
 
 @Injectable()
 export class SessionService {

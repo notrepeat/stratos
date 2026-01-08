@@ -5,10 +5,10 @@ import {
   IPaymentRepository,
   CreatePaymentData,
 } from '../../core/ports/payment.repository.port';
-import { payments } from '../../../../core/infrastructure/database/payment.schema';
-import { invoices } from '../../../../core/infrastructure/database/invoice.schema';
+import { payments } from '@core/infrastructure/database/payment.schema';
+import { invoices } from '@core/infrastructure/database/invoice.schema';
 import { Payment } from '../../core/domain/payment.entity';
-import { TenantDatabaseService } from '../../../../core/services/tenant-database.service';
+import { TenantDatabaseService } from '@core/services/tenant-database.service';
 
 @Injectable()
 export class PaymentRepositoryAdapter implements IPaymentRepository {

@@ -140,7 +140,6 @@ export type Query = {
   payments: Array<Payment>;
   invoicePayments: Array<Payment>;
   overdueInvoices: Array<Invoice>;
-  billingSummary: BillingSummary;
   health: Scalars['String'];
   tenantsHealth: Scalars['String'];
   storageHealth: Scalars['String'];
