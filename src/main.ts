@@ -38,7 +38,7 @@ async function bootstrap() {
     console.log('\n🎉 ================================');
     console.log(`🎉 Server is running on port ${env.PORT}`);
     console.log(
-      '🎉 GraphQL endpoint available at: http://localhost:${env.PORT}/graphql',
+      `🎉 GraphQL endpoint available at: http://localhost:${env.PORT}/graphql`,
     );
     console.log('🎉 ================================\n');
   } catch (error) {
